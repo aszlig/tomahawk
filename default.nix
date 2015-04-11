@@ -1,10 +1,11 @@
 { system          ? builtins.currentSystem
+, crossSystem     ? null
 , enableXMPP      ? true
 , enableKDE       ? false
 , enableTelepathy ? false
 }:
 
-with import <nixpkgs> { inherit system; };
+with import <nixpkgs> { inherit system crossSystem; };
 with lib;
 
 assert enableXMPP      -> libjreen     != null;
@@ -60,11 +61,13 @@ let
 
   src = ./.;
 
-  version = import (stdenv.mkDerivation {
+  nativePkgs = import <nixpkgs> {};
+
+  version = import (nativePkgs.stdenv.mkDerivation {
     name = "tomahawk-version.nix";
     inherit src;
     phases = [ "unpackPhase" "installPhase" ];
-    buildInputs = [ cmake ];
+    buildInputs = [ nativePkgs.cmake ];
     installPhase = ''
       (cmake -LAH 2> /dev/null || true) \
         | sed -n -re 's/^TOMAHAWK_VERSION:STRING[^=]*= *([^ ]*).*/"\1"/p' \
@@ -73,30 +76,32 @@ let
     '';
   });
 
-in stdenv.mkDerivation rec {
-  name = "tomahawk-${version}";
+  tomahawk = stdenv.mkDerivation rec {
+    name = "tomahawk-${version}";
 
-  inherit src version;
+    inherit src version;
 
-  cmakeFlags = [
-    "-DLUCENEPP_INCLUDE_DIR=${lucenepp}/include"
-    "-DLUCENEPP_LIBRARY_DIR=${lucenepp}/lib"
-  ];
+    cmakeFlags = [
+      "-DLUCENEPP_INCLUDE_DIR=${lucenepp}/include"
+      "-DLUCENEPP_LIBRARY_DIR=${lucenepp}/lib"
+    ];
 
-  buildInputs = (map useQT5 [ liblastfm quazip ]) ++ [
-    qcaQT5 qtkeychainQT5 libechonestQT5 kf5_latest.attica cmake pkgconfig
-    boost gnutls lucenepp vlc qt54.base qt54.svg qt54.tools qt54.x11extras
-    sparsehash taglib websocketpp makeWrapper
-  ] ++ stdenv.lib.optional enableXMPP      (useQT5 libjreen)
-    ++ stdenv.lib.optional enableKDE       (useQT5 kdelibs)
-    ++ stdenv.lib.optional enableTelepathy (useQT5 telepathy_qt);
+    buildInputs = (map useQT5 [ liblastfm quazip ]) ++ [
+      qcaQT5 qtkeychainQT5 libechonestQT5 kf5_latest.attica cmake pkgconfig
+      boost gnutls lucenepp vlc qt54.base qt54.svg qt54.tools qt54.x11extras
+      sparsehash taglib websocketpp makeWrapper
+    ] ++ stdenv.lib.optional enableXMPP      (useQT5 libjreen)
+      ++ stdenv.lib.optional enableKDE       (useQT5 kdelibs)
+      ++ stdenv.lib.optional enableTelepathy (useQT5 telepathy_qt);
 
-  enableParallelBuilding = true;
+    enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
-    description = "A multi-source music player";
-    homepage = "http://tomahawk-player.org/";
-    license = licenses.gpl3Plus;
-    platforms = platforms.all;
+    meta = with stdenv.lib; {
+      description = "A multi-source music player";
+      homepage = "http://tomahawk-player.org/";
+      license = licenses.gpl3Plus;
+      platforms = platforms.all;
+    };
   };
-}
+
+in if crossSystem != null then tomahawk.crossDrv else tomahawk
