@@ -13,6 +13,15 @@ let
       platform = {};
       openssl.system = "mingw${optionalString is64 "64"}";
     };
+  } else if system == "x86_64-apple-darwin" then {
+    crossSystem = {
+      config = "x86_64-apple-darwin13";
+      arch = "x86_64";
+      libc = "libSystem";
+      platform = {};
+      osxMinVersion = "10.7";
+      openssl.system = "darwin64-x86_64-cc";
+    };
   } else {
     inherit system;
   };
@@ -21,6 +30,7 @@ let
 
   supportedSystems = [
     "i686-linux" "x86_64-linux" "i686-mingw64" "x86_64-mingw64"
+    "x86_64-apple-darwin"
   ];
 
 in {
